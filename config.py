@@ -82,25 +82,14 @@ def get_portkey_api_key() -> str:
     return api_key
 
 
-def get_portkey_virtual_key() -> str:
+def get_portkey_virtual_key() -> str | None:
     """
     Load and return the Portkey virtual key from environment.
 
     Returns:
-        str: The Portkey virtual key for OpenAI
-
-    Raises:
-        ValueError: If PORTKEY_VIRTUAL_KEY is not set in environment when using Portkey
+        str | None: The Portkey virtual key for OpenAI, or None if not set
     """
-    virtual_key = os.getenv("PORTKEY_VIRTUAL_KEY")
-
-    if not virtual_key:
-        raise ValueError(
-            "PORTKEY_VIRTUAL_KEY not found in environment. "
-            "Please ensure .env file exists with PORTKEY_VIRTUAL_KEY set."
-        )
-
-    return virtual_key
+    return os.getenv("PORTKEY_VIRTUAL_KEY")
 
 
 def get_portkey_base_url() -> str:
@@ -132,14 +121,23 @@ def get_llm_client_config() -> dict[str, Any]:
         portkey_virtual_key = get_portkey_virtual_key()
         portkey_base_url = get_portkey_base_url()
 
+        headers: dict[str, str] = {
+            "x-portkey-api-key": portkey_api_key,
+        }
+
+        # If virtual key is provided, use it (recommended)
+        if portkey_virtual_key:
+            headers["x-portkey-virtual-key"] = portkey_virtual_key
+        else:
+            # Otherwise, use OpenAI API key directly with Portkey
+            openai_api_key = get_openai_api_key()
+            headers["Authorization"] = f"Bearer {openai_api_key}"
+            headers["x-portkey-provider"] = "openai"
+
         return {
             "api_key": portkey_api_key,
             "base_url": portkey_base_url,
-            "default_headers": {
-                "x-portkey-api-key": portkey_api_key,
-                "x-portkey-virtual-key": portkey_virtual_key,
-                "x-portkey-provider": "openai",
-            }
+            "default_headers": headers
         }
     elif provider == "openai":
         return {

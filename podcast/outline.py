@@ -290,10 +290,23 @@ def _parse_outline_response(
     num_segments: int,
     size_targets: dict[str, int],
 ) -> _Outline:
+    # Strip markdown code fences if present (common with Gemini, Claude, etc.)
+    cleaned_text = response_text.strip()
+    if cleaned_text.startswith("```json"):
+        cleaned_text = cleaned_text[7:]  # Remove ```json
+    elif cleaned_text.startswith("```"):
+        cleaned_text = cleaned_text[3:]  # Remove ```
+
+    if cleaned_text.endswith("```"):
+        cleaned_text = cleaned_text[:-3]  # Remove trailing ```
+
+    cleaned_text = cleaned_text.strip()
+
     try:
-        payload = json.loads(response_text)
+        payload = json.loads(cleaned_text)
     except json.JSONDecodeError as exc:
-        raise ValueError("Invalid JSON response from OpenAI.") from exc
+        print(f"[DEBUG] Failed to parse JSON. Response text: {cleaned_text[:500]}")
+        raise ValueError(f"Invalid JSON response. Got: {cleaned_text[:200]}") from exc
 
     if not isinstance(payload, dict):
         raise ValueError("OpenAI response must be a JSON object.")
@@ -357,23 +370,32 @@ def generate_outline(
     last_error: Exception | None = None
     total_attempts = MAX_RETRIES + 1
 
+    # Only use response_format for OpenAI models (gpt-*)
+    # Gemini and other models don't support this parameter
+    use_response_format = model_name.startswith("gpt-") or model_name.startswith("o1-")
+
     for attempt in range(total_attempts):
         try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
+            request_params = {
+                "model": model_name,
+                "messages": [
                     {
                         "role": "system",
                         "content": (
                             "You create podcast outlines that are structured, "
-                            "engaging, and JSON-only."
+                            "engaging, and JSON-only. You MUST respond with valid JSON only, "
+                            "no other text before or after."
                         ),
                     },
                     {"role": "user", "content": prompt},
                 ],
-                response_format={"type": "json_object"},
-                temperature=0.4,
-            )
+                "temperature": 0.4,
+            }
+
+            if use_response_format:
+                request_params["response_format"] = {"type": "json_object"}
+
+            response = client.chat.completions.create(**request_params)
             content = _extract_response_content(response)
             return _parse_outline_response(content, num_segments, size_targets)
         except (RateLimitError, APITimeoutError, APIError) as exc:

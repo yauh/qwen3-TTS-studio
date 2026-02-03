@@ -82,16 +82,6 @@ def get_portkey_api_key() -> str:
     return api_key
 
 
-def get_portkey_virtual_key() -> str | None:
-    """
-    Load and return the Portkey virtual key from environment.
-
-    Returns:
-        str | None: The Portkey virtual key for OpenAI, or None if not set
-    """
-    return os.getenv("PORTKEY_VIRTUAL_KEY")
-
-
 def get_portkey_base_url() -> str:
     """
     Get the Portkey base URL.
@@ -109,7 +99,11 @@ def get_llm_client_config() -> dict[str, Any]:
     Returns:
         dict: Configuration dictionary for OpenAI client initialization.
               For OpenAI: {"api_key": "..."}
-              For Portkey: {"api_key": "...", "base_url": "...", "default_headers": {...}}
+              For Portkey: {"api_key": "...", "base_url": "..."}
+
+    Note:
+        When using Portkey, configure your provider credentials (OpenAI, Gemini, Claude, etc.)
+        in the Portkey dashboard. Then just set PORTKEY_API_KEY and LLM_MODEL.
 
     Raises:
         ValueError: If required configuration is missing for the selected provider
@@ -118,36 +112,13 @@ def get_llm_client_config() -> dict[str, Any]:
 
     if provider == "portkey":
         portkey_api_key = get_portkey_api_key()
-        portkey_virtual_key = get_portkey_virtual_key()
         portkey_base_url = get_portkey_base_url()
 
-        headers: dict[str, str] = {
-            "x-portkey-api-key": portkey_api_key,
-        }
-
-        # If virtual key is provided, use it (recommended)
-        if portkey_virtual_key:
-            headers["x-portkey-virtual-key"] = portkey_virtual_key
-        else:
-            # Otherwise, try to use OpenAI API key directly with Portkey
-            # This only works for OpenAI models, not for Gemini/Claude/etc.
-            openai_api_key = os.getenv("OPENAI_API_KEY")
-            if not openai_api_key:
-                raise ValueError(
-                    "When using Portkey without a virtual key, OPENAI_API_KEY is required.\n"
-                    "To use other models (Gemini, Claude, etc.), you must set PORTKEY_VIRTUAL_KEY.\n\n"
-                    "Option 1 - Use virtual key (recommended for any model):\n"
-                    "  PORTKEY_VIRTUAL_KEY=your-virtual-key\n\n"
-                    "Option 2 - Use OpenAI directly (OpenAI models only):\n"
-                    "  OPENAI_API_KEY=sk-proj-your-key"
-                )
-            headers["Authorization"] = f"Bearer {openai_api_key}"
-            headers["x-portkey-provider"] = "openai"
-
+        # Simple approach: Just use Portkey API key
+        # Provider credentials should be configured in Portkey dashboard
         return {
             "api_key": portkey_api_key,
             "base_url": portkey_base_url,
-            "default_headers": headers
         }
     elif provider == "openai":
         return {

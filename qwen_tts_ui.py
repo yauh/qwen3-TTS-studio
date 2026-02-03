@@ -3403,6 +3403,14 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
 
                     with gr.Row():
                         with gr.Column(scale=1):
+                            # Mode selector
+                            podcast_mode = gr.Radio(
+                                choices=["Generate with AI", "Import Transcript"],
+                                value="Generate with AI",
+                                label="Content Mode",
+                                info="Choose how to create your podcast content"
+                            )
+
                             gr.HTML('<div class="section-header">Topic & Style</div>')
 
                             podcast_topic = gr.Textbox(
@@ -3411,9 +3419,11 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
                                 lines=3,
                                 max_lines=3,
                                 info="Required. What is your podcast about?",
+                                visible=True
                             )
                             podcast_topic_chars = gr.HTML(
-                                value=update_topic_char_count("")
+                                value=update_topic_char_count(""),
+                                visible=True
                             )
 
                             podcast_key_points = gr.Textbox(
@@ -3421,6 +3431,7 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
                                 placeholder="List the main points you want to cover...\n\n- Point 1\n- Point 2\n- Point 3",
                                 lines=4,
                                 info="Bullet points or key topics to discuss",
+                                visible=True
                             )
 
                             podcast_briefing = gr.Textbox(
@@ -3428,7 +3439,32 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
                                 placeholder="Describe the desired style and tone...\n\nExample: Conversational and engaging",
                                 lines=2,
                                 info="How should the podcast sound?",
+                                visible=True
                             )
+
+                            # Transcript import components (hidden by default)
+                            gr.HTML('<div class="section-header">Import Transcript</div>', visible=False, elem_id="transcript-header")
+
+                            podcast_transcript_file = gr.File(
+                                label="Upload Transcript File (.txt) - Format: Speaker Name: [timecode] text",
+                                file_types=[".txt"],
+                                type="filepath",
+                                visible=False
+                            )
+
+                            podcast_transcript_text = gr.Textbox(
+                                label="Or Paste Transcript Here",
+                                placeholder="Speaker 1:\n00:00\nHello and welcome...\n\nSpeaker 2:\n00:05\nThanks for having me...",
+                                lines=15,
+                                visible=False,
+                                info="Format: Speaker Name, optional timecode, then dialogue text"
+                            )
+
+                            podcast_transcript_status = gr.HTML(value="", visible=False)
+
+                            # Hidden state for parsed transcript
+                            podcast_transcript_data = gr.State([])
+                            podcast_speakers_data = gr.State([])
 
                             with gr.Row():
                                 podcast_quality_preset = gr.Dropdown(
@@ -3751,28 +3787,56 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
                         voice_selections,
                         quality_preset,
                         language,
+                        mode,
+                        transcript_data,
+                        speakers_data,
                     ):
-                        is_valid, error_msg = validate_content(
-                            topic, key_points, briefing
-                        )
-                        if not is_valid:
-                            yield (
-                                create_step_indicator_html(GenerationStep.OUTLINE, 0.0),
-                                0,
-                                f"Error: {error_msg}",
-                                "",
-                                f'<div style="color: #dc3545;">{error_msg}</div>',
-                                None,
-                                None,
-                                None,
-                                gr.update(visible=False),
-                                gr.update(value="Generate Podcast", interactive=True),
-                                gr.update(),
-                                gr.update(),
-                                gr.update(),
-                                gr.update(),
+                        # Skip validation if importing transcript
+                        is_import_mode = (mode == "Import Transcript")
+
+                        if not is_import_mode:
+                            is_valid, error_msg = validate_content(
+                                topic, key_points, briefing
                             )
-                            return
+                            if not is_valid:
+                                yield (
+                                    create_step_indicator_html(GenerationStep.OUTLINE, 0.0),
+                                    0,
+                                    f"Error: {error_msg}",
+                                    "",
+                                    f'<div style="color: #dc3545;">{error_msg}</div>',
+                                    None,
+                                    None,
+                                    None,
+                                    gr.update(visible=False),
+                                    gr.update(value="Generate Podcast", interactive=True),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                )
+                                return
+                        else:
+                            # Import mode - validate transcript
+                            if not transcript_data:
+                                error_msg = "No transcript data. Please upload or paste a transcript."
+                                yield (
+                                    create_step_indicator_html(GenerationStep.OUTLINE, 0.0),
+                                    0,
+                                    f"Error: {error_msg}",
+                                    "",
+                                    f'<div style="color: #dc3545;">{error_msg}</div>',
+                                    None,
+                                    None,
+                                    None,
+                                    gr.update(visible=False),
+                                    gr.update(value="Generate Podcast", interactive=True),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                )
+                                return
 
                         voice_valid, voice_msg, voice_output = validate_selections(
                             voice_selections
@@ -3948,11 +4012,24 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
 
                         def worker():
                             try:
+                                # Prepare imported transcript if in import mode
+                                imported_transcript_data = None
+                                if is_import_mode and transcript_data:
+                                    from podcast import transcript_parser
+                                    # Map transcript speaker names to voice IDs
+                                    speaker_mapping = transcript_parser.create_speaker_mapping(
+                                        speakers_data, voice_output
+                                    )
+                                    imported_transcript_data = transcript_parser.apply_speaker_mapping(
+                                        transcript_data, speaker_mapping
+                                    )
+
                                 result = podcast_orchestrator.generate_podcast(
                                     content_input=content_input,
                                     voice_selections=voice_output,
                                     quality_preset=quality_preset,
                                     progress_callback=progress_callback,
+                                    imported_transcript=imported_transcript_data,
                                 )
                                 q.put(_DoneEvent(result=result))
                             except Exception as e:
@@ -4511,6 +4588,44 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
                         outputs=[podcast_topic_chars],
                     )
 
+                    # Mode switching
+                    def toggle_podcast_mode(mode):
+                        is_ai = (mode == "Generate with AI")
+                        return (
+                            gr.update(visible=is_ai),  # topic
+                            gr.update(visible=is_ai),  # topic_chars
+                            gr.update(visible=is_ai),  # key_points
+                            gr.update(visible=is_ai),  # briefing
+                            gr.update(visible=not is_ai),  # transcript_file
+                            gr.update(visible=not is_ai),  # transcript_text
+                            gr.update(visible=not is_ai),  # transcript_status
+                        )
+
+                    podcast_mode.change(
+                        fn=toggle_podcast_mode,
+                        inputs=[podcast_mode],
+                        outputs=[
+                            podcast_topic, podcast_topic_chars, podcast_key_points,
+                            podcast_briefing, podcast_transcript_file,
+                            podcast_transcript_text, podcast_transcript_status
+                        ]
+                    )
+
+                    # Transcript file upload
+                    from ui.content_input import parse_uploaded_transcript, parse_pasted_transcript
+
+                    podcast_transcript_file.upload(
+                        fn=parse_uploaded_transcript,
+                        inputs=[podcast_transcript_file],
+                        outputs=[podcast_transcript_status, podcast_transcript_data, podcast_speakers_data]
+                    )
+
+                    podcast_transcript_text.change(
+                        fn=parse_pasted_transcript,
+                        inputs=[podcast_transcript_text],
+                        outputs=[podcast_transcript_status, podcast_transcript_data, podcast_speakers_data]
+                    )
+
                     all_slot_inputs = []
                     for slot_role, slot_voice in podcast_speaker_slots:
                         all_slot_inputs.extend([slot_role, slot_voice])
@@ -4543,6 +4658,9 @@ with gr.Blocks(title="Qwen3-TTS Studio") as demo:
                             podcast_voice_selections_state,
                             podcast_quality_preset,
                             podcast_language,
+                            podcast_mode,
+                            podcast_transcript_data,
+                            podcast_speakers_data,
                         ],
                         outputs=[
                             podcast_step_indicator,

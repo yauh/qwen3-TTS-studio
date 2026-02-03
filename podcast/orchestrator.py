@@ -119,6 +119,7 @@ def generate_podcast(
     voice_selections: list[dict[str, str]],
     quality_preset: str | dict[str, object] | None,
     progress_callback: ProgressCallback | None = None,
+    imported_transcript: list[dict[str, str]] | None = None,
 ) -> dict[str, str]:
     """
     Orchestrate full podcast generation workflow.
@@ -128,13 +129,18 @@ def generate_podcast(
         voice_selections: List of voice selection dicts.
         quality_preset: Name of preset or TTS params dict.
         progress_callback: Optional callback(step_name, detail) invoked at each step.
+        imported_transcript: Optional pre-made transcript dialogues to skip AI generation.
 
     Returns:
         Dict with paths to artifacts generated during the workflow.
     """
-    topic = str(content_input.get("topic", "")).strip()
-    if not topic:
-        raise ValueError("content_input must include a non-empty 'topic'.")
+    # If imported transcript provided, topic is optional
+    if imported_transcript:
+        topic = str(content_input.get("topic", "Imported Podcast")).strip()
+    else:
+        topic = str(content_input.get("topic", "")).strip()
+        if not topic:
+            raise ValueError("content_input must include a non-empty 'topic'.")
 
     key_points = _parse_key_points(content_input.get("key_points", []))
     briefing = str(content_input.get("briefing", "")).strip()
@@ -150,7 +156,9 @@ def generate_podcast(
 
     podcast_dir: Path | None = None
     try:
-        _ = config.get_llm_client_config()
+        # Only validate LLM config if we need to generate (not importing)
+        if not imported_transcript:
+            _ = config.get_llm_client_config()
 
         _notify(progress_callback, "create_directory", {"status": "started"})
         podcast_name = _timestamped_podcast_name()
@@ -162,35 +170,64 @@ def generate_podcast(
             {"status": "completed", "podcast_dir": str(podcast_dir)},
         )
 
-        _notify(progress_callback, "generate_outline", {"status": "started"})
         speaker_profile = voice_selection.create_speaker_profile(voice_selections)
         personas = _load_personas_for_speakers(speaker_profile)
-        outline = cast(
-            Outline,
-            outline_generator.generate_outline(
-                topic=topic,
-                key_points=key_points,
-                briefing=briefing,
-                num_segments=num_segments,
-                speakers=speaker_profile.speakers,
-                personas=personas,
-            ),
-        )
-        _notify(progress_callback, "generate_outline", {"status": "completed", "outline": outline.model_dump()})
 
-        _notify(progress_callback, "generate_transcript", {"status": "started"})
-        transcript = cast(
-            Transcript,
-            transcript_generator.generate_transcript(
-                outline=outline,
-                topic=topic,
-                briefing=briefing,
-                speakers=speaker_profile.speakers,
-                personas=personas,
-                language=language,
-            ),
-        )
-        _notify(progress_callback, "generate_transcript", {"status": "completed", "transcript": transcript.model_dump()})
+        # If transcript imported, skip AI generation
+        if imported_transcript:
+            _notify(progress_callback, "import_transcript", {"status": "started"})
+
+            # Create transcript object from imported dialogues
+            from podcast.models import Dialogue
+            dialogues = [
+                Dialogue(speaker=d["speaker"], text=d["text"])
+                for d in imported_transcript
+            ]
+            transcript = Transcript(dialogues=dialogues)
+
+            # Create a simple outline from the transcript (optional, for saving)
+            from podcast.models import Segment
+            outline = Outline(segments=[
+                Segment(
+                    title="Imported Transcript",
+                    description=f"Imported podcast with {len(dialogues)} dialogues",
+                    size="medium"
+                )
+            ])
+
+            _notify(progress_callback, "import_transcript", {
+                "status": "completed",
+                "num_dialogues": len(dialogues)
+            })
+        else:
+            # Generate outline and transcript with AI
+            _notify(progress_callback, "generate_outline", {"status": "started"})
+            outline = cast(
+                Outline,
+                outline_generator.generate_outline(
+                    topic=topic,
+                    key_points=key_points,
+                    briefing=briefing,
+                    num_segments=num_segments,
+                    speakers=speaker_profile.speakers,
+                    personas=personas,
+                ),
+            )
+            _notify(progress_callback, "generate_outline", {"status": "completed", "outline": outline.model_dump()})
+
+            _notify(progress_callback, "generate_transcript", {"status": "started"})
+            transcript = cast(
+                Transcript,
+                transcript_generator.generate_transcript(
+                    outline=outline,
+                    topic=topic,
+                    briefing=briefing,
+                    speakers=speaker_profile.speakers,
+                    personas=personas,
+                    language=language,
+                ),
+            )
+            _notify(progress_callback, "generate_transcript", {"status": "completed", "transcript": transcript.model_dump()})
 
         _notify(progress_callback, "save_artifacts", {"status": "started"})
         outline_path = storage.save_outline(outline, podcast_dir)

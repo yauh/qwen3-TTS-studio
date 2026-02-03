@@ -7,7 +7,13 @@ Can be used standalone or integrated into larger applications.
 """
 
 import gradio as gr
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
+import sys
+from pathlib import Path
+
+# Add parent directory to path to import transcript_parser
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from podcast import transcript_parser
 
 MAX_TOPIC_CHARS = 10000
 TOPIC_WARNING_THRESHOLD = 8000
@@ -247,38 +253,154 @@ def create_content_input_ui() -> gr.Blocks:
     return demo
 
 
+def toggle_mode_visibility(mode: str):
+    """
+    Toggle visibility of UI components based on selected mode.
+
+    Args:
+        mode: "Generate with AI" or "Import Transcript"
+
+    Returns:
+        Tuple of visibility booleans for (topic, char_count, key_points, briefing,
+                                          transcript_file, transcript_text, transcript_status)
+    """
+    is_ai_mode = (mode == "Generate with AI")
+
+    return (
+        gr.update(visible=is_ai_mode),  # topic
+        gr.update(visible=is_ai_mode),  # char_count
+        gr.update(visible=is_ai_mode),  # key_points
+        gr.update(visible=is_ai_mode),  # briefing
+        gr.update(visible=not is_ai_mode),  # transcript_file
+        gr.update(visible=not is_ai_mode),  # transcript_text
+        gr.update(visible=not is_ai_mode),  # transcript_status
+    )
+
+
+def parse_uploaded_transcript(file) -> Tuple[str, List[Dict[str, str]], List[str]]:
+    """
+    Parse an uploaded transcript file.
+
+    Args:
+        file: Gradio file upload object
+
+    Returns:
+        Tuple of (status_message, dialogues, unique_speakers)
+    """
+    if file is None:
+        return "No file uploaded.", [], []
+
+    try:
+        file_path = file.name if hasattr(file, 'name') else file
+        dialogues, speakers = transcript_parser.parse_transcript_file(file_path)
+
+        is_valid, error_msg = transcript_parser.validate_transcript(dialogues)
+        if not is_valid:
+            return f"<span style='color: #dc3545;'>Error: {error_msg}</span>", [], []
+
+        status = f"<span style='color: #28a745;'>✓ Parsed {len(dialogues)} dialogues from {len(speakers)} speakers: {', '.join(speakers)}</span>"
+        return status, dialogues, speakers
+    except Exception as e:
+        return f"<span style='color: #dc3545;'>Error parsing transcript: {str(e)}</span>", [], []
+
+
+def parse_pasted_transcript(text: str) -> Tuple[str, List[Dict[str, str]], List[str]]:
+    """
+    Parse pasted transcript text.
+
+    Args:
+        text: Pasted transcript content
+
+    Returns:
+        Tuple of (status_message, dialogues, unique_speakers)
+    """
+    if not text or not text.strip():
+        return "No transcript text provided.", [], []
+
+    try:
+        dialogues, speakers = transcript_parser.parse_transcript_text(text)
+
+        is_valid, error_msg = transcript_parser.validate_transcript(dialogues)
+        if not is_valid:
+            return f"<span style='color: #dc3545;'>Error: {error_msg}</span>", [], []
+
+        status = f"<span style='color: #28a745;'>✓ Parsed {len(dialogues)} dialogues from {len(speakers)} speakers: {', '.join(speakers)}</span>"
+        return status, dialogues, speakers
+    except Exception as e:
+        return f"<span style='color: #dc3545;'>Error parsing transcript: {str(e)}</span>", [], []
+
+
 def get_content_components():
     """
     Create content input components for integration into other UIs.
-    
+
     Returns:
-        Tuple of (topic, key_points, briefing, char_counter) components
+        Tuple of (mode_radio, topic, key_points, briefing, char_counter,
+                 transcript_file, transcript_text, transcript_status,
+                 transcript_data, speakers_data) components
     """
+    # Mode selector
+    mode_radio = gr.Radio(
+        choices=["Generate with AI", "Import Transcript"],
+        value="Generate with AI",
+        label="Content Mode",
+        info="Choose how to create your podcast content"
+    )
+
+    # AI Generation inputs
     topic_input = gr.Textbox(
         label="Podcast Topic",
         placeholder="Enter your podcast topic or main subject...",
         lines=3,
         max_lines=3,
-        info="Required. What is your podcast about?"
+        info="Required. What is your podcast about?",
+        visible=True
     )
-    
-    topic_char_count = gr.HTML(value=update_topic_char_count(""))
-    
+
+    topic_char_count = gr.HTML(value=update_topic_char_count(""), visible=True)
+
     key_points_input = gr.Textbox(
         label="Key Points (Optional)",
         placeholder="List the main points you want to cover...",
         lines=5,
-        info="Optional. Bullet points or key topics to discuss"
+        info="Optional. Bullet points or key topics to discuss",
+        visible=True
     )
-    
+
     style_briefing_input = gr.Textbox(
         label="Style & Tone (Optional)",
         placeholder="Describe the desired style and tone...",
         lines=2,
-        info="Optional. How should the podcast sound?"
+        info="Optional. How should the podcast sound?",
+        visible=True
     )
-    
-    return topic_input, key_points_input, style_briefing_input, topic_char_count
+
+    # Transcript import inputs
+    transcript_file = gr.File(
+        label="Upload Transcript File (.txt)",
+        file_types=[".txt"],
+        type="filepath",
+        visible=False,
+        info="Format: 'Speaker Name:\\n[optional timecode]\\ndialogue text'"
+    )
+
+    transcript_text = gr.Textbox(
+        label="Or Paste Transcript Here",
+        placeholder="Speaker 1:\n00:00\nHello and welcome...\n\nSpeaker 2:\n00:05\nThanks for having me...",
+        lines=15,
+        visible=False,
+        info="Format: Speaker Name, optional timecode, then dialogue text"
+    )
+
+    transcript_status = gr.HTML(value="", visible=False)
+
+    # Hidden state to store parsed transcript
+    transcript_data = gr.State([])
+    speakers_data = gr.State([])
+
+    return (mode_radio, topic_input, key_points_input, style_briefing_input,
+            topic_char_count, transcript_file, transcript_text, transcript_status,
+            transcript_data, speakers_data)
 
 
 if __name__ == "__main__":

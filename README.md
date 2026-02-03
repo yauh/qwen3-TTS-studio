@@ -23,7 +23,7 @@ Qwen3-TTS is a powerful text-to-speech model, but using it directly requires dea
 
 ### Podcast Generation
 - **One-Click Podcasts**: Enter a topic, get a complete podcast
-- **AI Script Writing**: GPT-powered outline and transcript generation
+- **AI Script Writing**: Outline and transcript generation (supports OpenAI, Gemini, Claude via Portkey)
 - **Multi-Speaker Support**: Assign different voices to each speaker
 - **Custom Personas**: Create and save speaker personalities
 
@@ -38,7 +38,9 @@ Qwen3-TTS is a powerful text-to-speech model, but using it directly requires dea
 - Python 3.12+
 - macOS (MPS) / Linux (CUDA)
 - 16GB+ RAM
-- OpenAI API Key or Portkey Account (for Podcast feature)
+- API Key for Podcast feature:
+  - OpenAI (quick start) OR
+  - Portkey (production, multi-provider support)
 
 ## Installation
 
@@ -100,76 +102,33 @@ modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice --local_dir ./Q
 
 ### 5. Configure LLM Provider
 
-The Podcast feature requires an LLM provider for AI-powered outline and transcript generation. You can choose between **OpenAI** (direct) or **Portkey** (with observability and advanced features).
-
-#### Option A: OpenAI (Default)
-
-Create a `.env` file:
+Create a `.env` file and configure your LLM provider:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your OpenAI API key:
+#### Quick Start Options:
 
+**OpenAI (Easiest):**
 ```bash
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-proj-your-openai-api-key-here
+OPENAI_API_KEY=sk-proj-your-key
 ```
+Get your key: https://platform.openai.com/api-keys
 
-Get your API key from: https://platform.openai.com/api-keys
-
-#### Option B: Portkey (Recommended for Production)
-
-Portkey provides observability, caching, fallbacks, and cost management. It supports **multiple AI providers** including OpenAI, Gemini, Claude, and more.
-
+**Portkey (Production - supports Gemini, Claude, GPT, etc.):**
+```bash
+LLM_PROVIDER=portkey
+LLM_MODEL=gemini-1.5-pro  # or claude-3-5-sonnet, gpt-4-turbo, etc.
+PORTKEY_API_KEY=sk-portkey-your-key
+```
 1. Sign up at [Portkey](https://app.portkey.ai/)
-2. Create a virtual key for your chosen provider in the Portkey dashboard
-3. Configure `.env`:
+2. Configure provider credentials in Portkey dashboard
+3. Benefits: Observability, caching, cost tracking, multi-provider support
 
-**For OpenAI models:**
-```bash
-LLM_PROVIDER=portkey
-LLM_MODEL=gpt-4-turbo
-PORTKEY_API_KEY=sk-portkey-your-portkey-api-key
-PORTKEY_VIRTUAL_KEY=openai-virtual-your-virtual-key
-```
+**Important:** Voice Clone audio transcription requires `OPENAI_API_KEY` (uses Whisper), even when using Portkey.
 
-**For Gemini models:**
-```bash
-LLM_PROVIDER=portkey
-LLM_MODEL=gemini-1.5-pro
-PORTKEY_API_KEY=sk-portkey-your-portkey-api-key
-PORTKEY_VIRTUAL_KEY=gemini-virtual-your-virtual-key
-```
-
-**For Claude models:**
-```bash
-LLM_PROVIDER=portkey
-LLM_MODEL=claude-3-5-sonnet-20241022
-PORTKEY_API_KEY=sk-portkey-your-portkey-api-key
-PORTKEY_VIRTUAL_KEY=claude-virtual-your-virtual-key
-```
-
-**Benefits of Portkey:**
-- 📊 Real-time observability and analytics
-- 💰 Cost tracking and management
-- ⚡ Semantic caching to reduce costs
-- 🔄 Automatic fallbacks and load balancing
-- 📈 Detailed usage metrics
-- 🔀 **Multi-provider support** (OpenAI, Gemini, Claude, etc.)
-
-#### Optional: Custom Model
-
-You can override the default model (gpt-5.2) by setting `LLM_MODEL`:
-
-```bash
-LLM_MODEL=gpt-4-turbo              # OpenAI
-LLM_MODEL=gemini-1.5-pro           # Google Gemini (via Portkey)
-LLM_MODEL=claude-3-5-sonnet-20241022  # Anthropic Claude (via Portkey)
-```
-
-For complete configuration options, see [Portkey Integration Guide](PORTKEY_INTEGRATION.md).
+See [PORTKEY_INTEGRATION.md](PORTKEY_INTEGRATION.md) for detailed configuration.
 
 ## Usage
 
@@ -201,29 +160,6 @@ Open `http://127.0.0.1:7860` in your browser.
 | Aiden | Bright American male, clear midrange | English |
 | Ono_Anna | Lively Japanese female | Japanese |
 | Sohee | Warm Korean female, rich emotion | Korean |
-
-## LLM Provider Configuration
-
-This project supports multiple LLM providers and models for the Podcast generation feature:
-
-| Provider | Models Supported | Setup Difficulty | Features | Best For |
-|----------|-----------------|------------------|----------|----------|
-| **OpenAI** | GPT-4, GPT-3.5, etc. | Easy | Direct API access | Quick setup, development |
-| **Portkey** | OpenAI, Gemini, Claude, Llama, etc. | Medium | Observability, caching, fallbacks, analytics, multi-provider | Production, cost management, monitoring, model flexibility |
-
-**Quick Switch:** Change providers and models by updating environment variables in `.env`:
-```bash
-LLM_PROVIDER=portkey
-LLM_MODEL=gemini-1.5-pro  # Use Gemini instead of GPT
-```
-
-**Supported Model Examples:**
-- OpenAI: `gpt-4-turbo`, `gpt-4`, `gpt-3.5-turbo`
-- Gemini (via Portkey): `gemini-1.5-pro`, `gemini-1.5-flash`
-- Claude (via Portkey): `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229`
-- Or any other model supported by Portkey
-
-For detailed setup and configuration, see [PORTKEY_INTEGRATION.md](PORTKEY_INTEGRATION.md).
 
 ## Project Structure
 
@@ -272,8 +208,13 @@ qwen3-TTS-studio/
 
 #### "PORTKEY_API_KEY not found in environment"
 - Verify `LLM_PROVIDER=portkey` is set in `.env`
-- Ensure both `PORTKEY_API_KEY` and `PORTKEY_VIRTUAL_KEY` are configured
-- Check that your virtual key is properly set up in the Portkey dashboard
+- Ensure `PORTKEY_API_KEY` is configured
+- Configure your provider credentials in the Portkey dashboard
+
+#### Whisper Transcription Error (Voice Clone)
+- Audio transcription requires `OPENAI_API_KEY` even when using Portkey
+- Whisper is OpenAI-specific and cannot be routed through Portkey
+- Set `OPENAI_API_KEY` in your `.env` file
 
 #### Audio Generation Issues
 - Ensure sufficient RAM (16GB+ recommended)

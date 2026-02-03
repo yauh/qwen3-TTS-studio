@@ -38,9 +38,10 @@ Qwen3-TTS is a powerful text-to-speech model, but using it directly requires dea
 - Python 3.12+
 - macOS (MPS) / Linux (CUDA)
 - 16GB+ RAM
-- API Key for Podcast feature:
-  - OpenAI (quick start) OR
-  - Portkey (production, multi-provider support)
+- API Key for Podcast feature (choose one):
+  - OpenAI (quick start)
+  - Portkey (production, multi-provider)
+  - Local LLM via Ollama/LM Studio (free, private)
 
 ## Installation
 
@@ -116,17 +117,38 @@ OPENAI_API_KEY=sk-proj-your-key
 ```
 Get your key: https://platform.openai.com/api-keys
 
-**Portkey (Production - supports Gemini, Claude, GPT, etc.):**
+**Portkey (Production - Gemini, Claude, GPT, etc.):**
 ```bash
 LLM_PROVIDER=portkey
 LLM_MODEL=gemini-1.5-pro  # or claude-3-5-sonnet, gpt-4-turbo, etc.
 PORTKEY_API_KEY=sk-portkey-your-key
 ```
 1. Sign up at [Portkey](https://app.portkey.ai/)
-2. Configure provider credentials in Portkey dashboard
-3. Benefits: Observability, caching, cost tracking, multi-provider support
+2. Configure provider credentials in dashboard
+3. Benefits: Observability, caching, cost tracking, multi-provider
 
-**Important:** Voice Clone audio transcription requires `OPENAI_API_KEY` (uses Whisper), even when using Portkey.
+**Local LLM (Free & Private - Ollama):**
+```bash
+LLM_PROVIDER=localllm
+LLM_MODEL=llama3.2:3b  # or qwen2.5:3b, mistral:7b, etc.
+```
+1. Install [Ollama](https://ollama.ai/)
+2. Pull a model: `ollama pull llama3.2:3b`
+3. No API key needed - runs locally!
+
+**Local LLM (Free & Private - LM Studio):**
+```bash
+LLM_PROVIDER=localllm
+LLM_MODEL=qwen2.5-3b-instruct
+LLM_LOCAL_BASE_URL=http://localhost:1234/v1
+```
+1. Install [LM Studio](https://lmstudio.ai/)
+2. Download and load a model
+3. Start local server in LM Studio
+
+**Important:** Voice Clone audio transcription requires `OPENAI_API_KEY` (uses Whisper), even when using Portkey or Local LLM.
+
+**Recommended Local Models:** For best JSON output quality, use models 3B+ (llama3.2:3b, qwen2.5:3b, mistral:7b)
 
 See [PORTKEY_INTEGRATION.md](PORTKEY_INTEGRATION.md) for detailed configuration.
 
@@ -212,9 +234,15 @@ qwen3-TTS-studio/
 - Configure your provider credentials in the Portkey dashboard
 
 #### Whisper Transcription Error (Voice Clone)
-- Audio transcription requires `OPENAI_API_KEY` even when using Portkey
-- Whisper is OpenAI-specific and cannot be routed through Portkey
+- Audio transcription requires `OPENAI_API_KEY` even when using Portkey or Local LLM
+- Whisper is OpenAI-specific and cannot be routed through other providers
 - Set `OPENAI_API_KEY` in your `.env` file
+
+#### Local LLM Connection Issues
+- Ensure Ollama is running: `ollama serve` (usually starts automatically)
+- For LM Studio: Start the local server in the app (default port 1234)
+- Check model is loaded: `ollama list` (for Ollama)
+- Verify base URL matches your setup (Ollama: 11434, LM Studio: 1234)
 
 #### Audio Generation Issues
 - Ensure sufficient RAM (16GB+ recommended)

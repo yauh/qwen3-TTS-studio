@@ -25,7 +25,7 @@ def get_llm_provider() -> str:
     Get the configured LLM provider.
 
     Returns:
-        str: The provider name ('openai' or 'portkey'). Defaults to 'openai'.
+        str: The provider name ('openai', 'portkey', or 'localllm'). Defaults to 'openai'.
     """
     return os.getenv("LLM_PROVIDER", "openai").lower()
 
@@ -92,6 +92,17 @@ def get_portkey_base_url() -> str:
     return os.getenv("PORTKEY_BASE_URL", "https://api.portkey.ai/v1")
 
 
+def get_local_llm_base_url() -> str:
+    """
+    Get the local LLM base URL (Ollama or LM Studio).
+
+    Returns:
+        str: The local LLM API base URL. Defaults to 'http://localhost:11434/v1' (Ollama).
+             For LM Studio, use 'http://localhost:1234/v1'.
+    """
+    return os.getenv("LLM_LOCAL_BASE_URL", "http://localhost:11434/v1")
+
+
 def get_llm_client_config() -> dict[str, Any]:
     """
     Get the LLM client configuration based on the configured provider.
@@ -100,17 +111,29 @@ def get_llm_client_config() -> dict[str, Any]:
         dict: Configuration dictionary for OpenAI client initialization.
               For OpenAI: {"api_key": "..."}
               For Portkey: {"api_key": "...", "base_url": "..."}
+              For Local LLM: {"api_key": "not-needed", "base_url": "..."}
 
     Note:
         When using Portkey, configure your provider credentials (OpenAI, Gemini, Claude, etc.)
         in the Portkey dashboard. Then just set PORTKEY_API_KEY and LLM_MODEL.
+
+        When using Local LLM (Ollama/LM Studio), make sure your local server is running
+        and the model is loaded. No API key needed.
 
     Raises:
         ValueError: If required configuration is missing for the selected provider
     """
     provider = get_llm_provider()
 
-    if provider == "portkey":
+    if provider == "localllm":
+        local_base_url = get_local_llm_base_url()
+
+        # Local LLMs (Ollama, LM Studio) don't need API keys
+        return {
+            "api_key": "not-needed",
+            "base_url": local_base_url,
+        }
+    elif provider == "portkey":
         portkey_api_key = get_portkey_api_key()
         portkey_base_url = get_portkey_base_url()
 
@@ -127,5 +150,5 @@ def get_llm_client_config() -> dict[str, Any]:
     else:
         raise ValueError(
             f"Unknown LLM provider: {provider}. "
-            "Please set LLM_PROVIDER to either 'openai' or 'portkey'."
+            "Please set LLM_PROVIDER to 'openai', 'portkey', or 'localllm'."
         )

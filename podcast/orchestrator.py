@@ -150,7 +150,7 @@ def generate_podcast(
 
     podcast_dir: Path | None = None
     try:
-        _ = config.get_openai_api_key()
+        _ = config.get_llm_client_config()
 
         _notify(progress_callback, "create_directory", {"status": "started"})
         podcast_name = _timestamped_podcast_name()

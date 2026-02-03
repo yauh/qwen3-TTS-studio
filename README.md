@@ -38,7 +38,7 @@ Qwen3-TTS is a powerful text-to-speech model, but using it directly requires dea
 - Python 3.12+
 - macOS (MPS) / Linux (CUDA)
 - 16GB+ RAM
-- OpenAI API Key (for Podcast feature)
+- OpenAI API Key or Portkey Account (for Podcast feature)
 
 ## Installation
 
@@ -98,13 +98,57 @@ modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./Qwen3-TT
 modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice --local_dir ./Qwen3-TTS-12Hz-1.7B-CustomVoice
 ```
 
-### 5. Environment Variables
+### 5. Configure LLM Provider
+
+The Podcast feature requires an LLM provider for AI-powered outline and transcript generation. You can choose between **OpenAI** (direct) or **Portkey** (with observability and advanced features).
+
+#### Option A: OpenAI (Default)
 
 Create a `.env` file:
 
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
+cp .env.example .env
 ```
+
+Edit `.env` and add your OpenAI API key:
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-proj-your-openai-api-key-here
+```
+
+Get your API key from: https://platform.openai.com/api-keys
+
+#### Option B: Portkey (Recommended for Production)
+
+Portkey provides observability, caching, fallbacks, and cost management while maintaining full OpenAI compatibility.
+
+1. Sign up at [Portkey](https://app.portkey.ai/)
+2. Create a virtual key for OpenAI in the Portkey dashboard
+3. Configure `.env`:
+
+```bash
+LLM_PROVIDER=portkey
+PORTKEY_API_KEY=sk-portkey-your-portkey-api-key
+PORTKEY_VIRTUAL_KEY=openai-virtual-your-virtual-key
+```
+
+**Benefits of Portkey:**
+- 📊 Real-time observability and analytics
+- 💰 Cost tracking and management
+- ⚡ Semantic caching to reduce costs
+- 🔄 Automatic fallbacks and load balancing
+- 📈 Detailed usage metrics
+
+#### Optional: Custom Model
+
+You can override the default model (gpt-5.2) by adding:
+
+```bash
+LLM_MODEL=gpt-4-turbo
+```
+
+For complete configuration options, see [Portkey Integration Guide](PORTKEY_INTEGRATION.md).
 
 ## Usage
 
@@ -137,12 +181,28 @@ Open `http://127.0.0.1:7860` in your browser.
 | Ono_Anna | Lively Japanese female | Japanese |
 | Sohee | Warm Korean female, rich emotion | Korean |
 
+## LLM Provider Configuration
+
+This project supports multiple LLM providers for the Podcast generation feature:
+
+| Provider | Setup Difficulty | Features | Best For |
+|----------|-----------------|----------|----------|
+| **OpenAI** | Easy | Direct API access | Quick setup, development |
+| **Portkey** | Medium | Observability, caching, fallbacks, analytics | Production, cost management, monitoring |
+
+**Quick Switch:** Change providers by updating a single environment variable in `.env`:
+```bash
+LLM_PROVIDER=openai  # or 'portkey'
+```
+
+For detailed setup and configuration, see [PORTKEY_INTEGRATION.md](PORTKEY_INTEGRATION.md).
+
 ## Project Structure
 
 ```
 qwen3-TTS-studio/
 ├── qwen_tts_ui.py              # Main entry point
-├── config.py                   # Configuration
+├── config.py                   # LLM provider configuration
 │
 ├── ui/                         # UI Components
 │   ├── content_input.py        # Content input section
@@ -172,6 +232,32 @@ qwen3-TTS-studio/
     ├── persona_models.py       # Persona models
     └── voice.py                # Voice management
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+#### "OPENAI_API_KEY not found in environment"
+- Ensure you have a `.env` file in the project root
+- Verify `OPENAI_API_KEY` is set in `.env`
+- Check that `LLM_PROVIDER=openai` (or not set, as it's the default)
+
+#### "PORTKEY_API_KEY not found in environment"
+- Verify `LLM_PROVIDER=portkey` is set in `.env`
+- Ensure both `PORTKEY_API_KEY` and `PORTKEY_VIRTUAL_KEY` are configured
+- Check that your virtual key is properly set up in the Portkey dashboard
+
+#### Audio Generation Issues
+- Ensure sufficient RAM (16GB+ recommended)
+- For CUDA users, verify flash-attn is properly installed
+- Check that model files are completely downloaded
+
+#### Model Loading Errors
+- Verify all required models are downloaded to the correct directories
+- Check that model paths match the directory structure
+- Ensure sufficient disk space for models
+
+For more detailed troubleshooting, see [PORTKEY_INTEGRATION.md](PORTKEY_INTEGRATION.md).
 
 ## Acknowledgments
 

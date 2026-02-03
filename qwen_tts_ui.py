@@ -89,12 +89,13 @@ def auto_transcribe_audio(audio_path: str | None) -> str:
         return "Error: OpenAI package not installed. Please install it with: pip install openai"
 
     try:
-        api_key = get_openai_api_key()
+        from config import get_llm_client_config
+        client_config = get_llm_client_config()
     except ValueError as e:
         return f"Error: {str(e)}"
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(**client_config)
 
         with open(audio_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(

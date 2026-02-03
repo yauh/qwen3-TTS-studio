@@ -27,6 +27,12 @@ _config_module = import_module("config")
 get_openai_api_key = cast(
     Callable[[], str], getattr(_config_module, "get_openai_api_key")
 )
+get_llm_client_config = cast(
+    Callable[[], dict], getattr(_config_module, "get_llm_client_config")
+)
+get_llm_model = cast(
+    Callable[[], str], getattr(_config_module, "get_llm_model")
+)
 _models_module = import_module("podcast.models")
 
 MODEL_NAME = "gpt-5.2"
@@ -325,7 +331,9 @@ def generate_transcript(
               enriched_briefing += f"\n\nSPEAKER PERSONAS:\n{persona_context}"
 
       OpenAI, RateLimitError, APITimeoutError, APIError = _load_openai()
-      client = OpenAI(api_key=get_openai_api_key())
+      client_config = get_llm_client_config()
+      client = OpenAI(**client_config)
+      model_name = get_llm_model()
 
       dialogues: list[dict[str, str]] = []
       total_segments = len(outline.segments)
@@ -349,7 +357,7 @@ def generate_transcript(
           for attempt in range(MAX_ATTEMPTS):
               try:
                   response = client.chat.completions.create(
-                      model=MODEL_NAME,
+                      model=model_name,
                       messages=[
                           {
                               "role": "system",

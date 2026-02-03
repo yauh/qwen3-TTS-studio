@@ -22,6 +22,12 @@ _config_module = import_module("config")
 get_openai_api_key = cast(
     Callable[[], str], getattr(_config_module, "get_openai_api_key")
 )
+get_llm_client_config = cast(
+    Callable[[], dict], getattr(_config_module, "get_llm_client_config")
+)
+get_llm_model = cast(
+    Callable[[], str], getattr(_config_module, "get_llm_model")
+)
 _models_module = import_module("podcast.models")
 
 MODEL_NAME = "gpt-5.2"
@@ -345,14 +351,16 @@ def generate_outline(
     )
 
     OpenAI, RateLimitError, APITimeoutError, APIError = _load_openai()
-    client = OpenAI(api_key=get_openai_api_key())
+    client_config = get_llm_client_config()
+    client = OpenAI(**client_config)
+    model_name = get_llm_model()
     last_error: Exception | None = None
     total_attempts = MAX_RETRIES + 1
 
     for attempt in range(total_attempts):
         try:
             response = client.chat.completions.create(
-                model=MODEL_NAME,
+                model=model_name,
                 messages=[
                     {
                         "role": "system",

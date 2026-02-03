@@ -121,16 +121,34 @@ Get your API key from: https://platform.openai.com/api-keys
 
 #### Option B: Portkey (Recommended for Production)
 
-Portkey provides observability, caching, fallbacks, and cost management while maintaining full OpenAI compatibility.
+Portkey provides observability, caching, fallbacks, and cost management. It supports **multiple AI providers** including OpenAI, Gemini, Claude, and more.
 
 1. Sign up at [Portkey](https://app.portkey.ai/)
-2. Create a virtual key for OpenAI in the Portkey dashboard
+2. Create a virtual key for your chosen provider in the Portkey dashboard
 3. Configure `.env`:
 
+**For OpenAI models:**
 ```bash
 LLM_PROVIDER=portkey
+LLM_MODEL=gpt-4-turbo
 PORTKEY_API_KEY=sk-portkey-your-portkey-api-key
 PORTKEY_VIRTUAL_KEY=openai-virtual-your-virtual-key
+```
+
+**For Gemini models:**
+```bash
+LLM_PROVIDER=portkey
+LLM_MODEL=gemini-1.5-pro
+PORTKEY_API_KEY=sk-portkey-your-portkey-api-key
+PORTKEY_VIRTUAL_KEY=gemini-virtual-your-virtual-key
+```
+
+**For Claude models:**
+```bash
+LLM_PROVIDER=portkey
+LLM_MODEL=claude-3-5-sonnet-20241022
+PORTKEY_API_KEY=sk-portkey-your-portkey-api-key
+PORTKEY_VIRTUAL_KEY=claude-virtual-your-virtual-key
 ```
 
 **Benefits of Portkey:**
@@ -139,13 +157,16 @@ PORTKEY_VIRTUAL_KEY=openai-virtual-your-virtual-key
 - ⚡ Semantic caching to reduce costs
 - 🔄 Automatic fallbacks and load balancing
 - 📈 Detailed usage metrics
+- 🔀 **Multi-provider support** (OpenAI, Gemini, Claude, etc.)
 
 #### Optional: Custom Model
 
-You can override the default model (gpt-5.2) by adding:
+You can override the default model (gpt-5.2) by setting `LLM_MODEL`:
 
 ```bash
-LLM_MODEL=gpt-4-turbo
+LLM_MODEL=gpt-4-turbo              # OpenAI
+LLM_MODEL=gemini-1.5-pro           # Google Gemini (via Portkey)
+LLM_MODEL=claude-3-5-sonnet-20241022  # Anthropic Claude (via Portkey)
 ```
 
 For complete configuration options, see [Portkey Integration Guide](PORTKEY_INTEGRATION.md).
@@ -183,17 +204,24 @@ Open `http://127.0.0.1:7860` in your browser.
 
 ## LLM Provider Configuration
 
-This project supports multiple LLM providers for the Podcast generation feature:
+This project supports multiple LLM providers and models for the Podcast generation feature:
 
-| Provider | Setup Difficulty | Features | Best For |
-|----------|-----------------|----------|----------|
-| **OpenAI** | Easy | Direct API access | Quick setup, development |
-| **Portkey** | Medium | Observability, caching, fallbacks, analytics | Production, cost management, monitoring |
+| Provider | Models Supported | Setup Difficulty | Features | Best For |
+|----------|-----------------|------------------|----------|----------|
+| **OpenAI** | GPT-4, GPT-3.5, etc. | Easy | Direct API access | Quick setup, development |
+| **Portkey** | OpenAI, Gemini, Claude, Llama, etc. | Medium | Observability, caching, fallbacks, analytics, multi-provider | Production, cost management, monitoring, model flexibility |
 
-**Quick Switch:** Change providers by updating a single environment variable in `.env`:
+**Quick Switch:** Change providers and models by updating environment variables in `.env`:
 ```bash
-LLM_PROVIDER=openai  # or 'portkey'
+LLM_PROVIDER=portkey
+LLM_MODEL=gemini-1.5-pro  # Use Gemini instead of GPT
 ```
+
+**Supported Model Examples:**
+- OpenAI: `gpt-4-turbo`, `gpt-4`, `gpt-3.5-turbo`
+- Gemini (via Portkey): `gemini-1.5-pro`, `gemini-1.5-flash`
+- Claude (via Portkey): `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229`
+- Or any other model supported by Portkey
 
 For detailed setup and configuration, see [PORTKEY_INTEGRATION.md](PORTKEY_INTEGRATION.md).
 

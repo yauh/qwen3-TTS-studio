@@ -46,7 +46,7 @@ This document explains the Portkey integration that has been added to Qwen3-TTS 
 
 3. Run the application as usual.
 
-### Using Portkey
+### Using Portkey with OpenAI
 
 1. Sign up at [Portkey](https://app.portkey.ai/)
 
@@ -70,6 +70,52 @@ This document explains the Portkey integration that has been added to Qwen3-TTS 
 
 5. Run the application - all LLM requests will now route through Portkey!
 
+### Using Portkey with Gemini
+
+1. Sign up at [Portkey](https://app.portkey.ai/)
+
+2. Create a virtual key for Gemini in the Portkey dashboard:
+   - Go to Virtual Keys section
+   - Create a new virtual key
+   - Select Google (Gemini) as the provider
+   - Add your Google AI API key
+
+3. Edit `.env`:
+   ```bash
+   LLM_PROVIDER=portkey
+   LLM_MODEL=gemini-1.5-pro
+   PORTKEY_API_KEY=sk-portkey-your-key-here
+   PORTKEY_VIRTUAL_KEY=gemini-virtual-your-key-here
+   ```
+
+4. Run the application - it will use Gemini for podcast generation!
+
+### Using Portkey with Claude
+
+1. Create a virtual key for Claude (Anthropic) in the Portkey dashboard
+
+2. Edit `.env`:
+   ```bash
+   LLM_PROVIDER=portkey
+   LLM_MODEL=claude-3-5-sonnet-20241022
+   PORTKEY_API_KEY=sk-portkey-your-key-here
+   PORTKEY_VIRTUAL_KEY=claude-virtual-your-key-here
+   ```
+
+3. Run the application with Claude!
+
+### Using Portkey without Virtual Key
+
+If you prefer not to use virtual keys, you can use your provider API key directly:
+
+```bash
+LLM_PROVIDER=portkey
+PORTKEY_API_KEY=sk-portkey-your-key-here
+OPENAI_API_KEY=sk-proj-your-openai-key
+```
+
+This provides observability while using your OpenAI key directly.
+
 ## Configuration Options
 
 ### Environment Variables
@@ -77,11 +123,23 @@ This document explains the Portkey integration that has been added to Qwen3-TTS 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `LLM_PROVIDER` | No | `openai` | Provider to use: `openai` or `portkey` |
-| `LLM_MODEL` | No | `gpt-5.2` | Model name to use for completions |
-| `OPENAI_API_KEY` | Yes* | - | OpenAI API key (*required when using OpenAI) |
-| `PORTKEY_API_KEY` | Yes** | - | Portkey API key (**required when using Portkey) |
-| `PORTKEY_VIRTUAL_KEY` | Yes** | - | Portkey virtual key for OpenAI (**required when using Portkey) |
+| `LLM_MODEL` | No | `gpt-5.2` | Model name (e.g., `gpt-4`, `gemini-1.5-pro`, `claude-3-5-sonnet-20241022`) |
+| `OPENAI_API_KEY` | Conditional | - | OpenAI API key (required when `LLM_PROVIDER=openai` or when using Portkey without virtual key) |
+| `PORTKEY_API_KEY` | Conditional | - | Portkey API key (required when `LLM_PROVIDER=portkey`) |
+| `PORTKEY_VIRTUAL_KEY` | Optional | - | Portkey virtual key (optional, if not provided will use `OPENAI_API_KEY` directly) |
 | `PORTKEY_BASE_URL` | No | `https://api.portkey.ai/v1` | Portkey API endpoint |
+
+### Supported Models
+
+When using Portkey, you can use models from multiple providers:
+
+| Provider | Example Models | Virtual Key Needed |
+|----------|---------------|-------------------|
+| OpenAI | `gpt-4-turbo`, `gpt-4`, `gpt-3.5-turbo` | Yes (openai-virtual-*) |
+| Google Gemini | `gemini-1.5-pro`, `gemini-1.5-flash` | Yes (gemini-virtual-*) |
+| Anthropic Claude | `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229` | Yes (claude-virtual-*) |
+| Meta Llama | `llama-3-70b`, `llama-3-8b` | Yes (depends on provider) |
+| Other | Any model supported by Portkey | Yes (check Portkey docs) |
 
 ## Benefits of Using Portkey
 

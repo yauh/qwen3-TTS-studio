@@ -129,8 +129,18 @@ def get_llm_client_config() -> dict[str, Any]:
         if portkey_virtual_key:
             headers["x-portkey-virtual-key"] = portkey_virtual_key
         else:
-            # Otherwise, use OpenAI API key directly with Portkey
-            openai_api_key = get_openai_api_key()
+            # Otherwise, try to use OpenAI API key directly with Portkey
+            # This only works for OpenAI models, not for Gemini/Claude/etc.
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if not openai_api_key:
+                raise ValueError(
+                    "When using Portkey without a virtual key, OPENAI_API_KEY is required.\n"
+                    "To use other models (Gemini, Claude, etc.), you must set PORTKEY_VIRTUAL_KEY.\n\n"
+                    "Option 1 - Use virtual key (recommended for any model):\n"
+                    "  PORTKEY_VIRTUAL_KEY=your-virtual-key\n\n"
+                    "Option 2 - Use OpenAI directly (OpenAI models only):\n"
+                    "  OPENAI_API_KEY=sk-proj-your-key"
+                )
             headers["Authorization"] = f"Bearer {openai_api_key}"
             headers["x-portkey-provider"] = "openai"
 

@@ -352,6 +352,10 @@ def generate_transcript(
       # Gemini and other models don't support this parameter
       use_response_format = model_name.startswith("gpt-") or model_name.startswith("o1-")
 
+      # Detect local LLM provider
+      provider = _config_module.get_llm_provider() if hasattr(_config_module, 'get_llm_provider') else "openai"
+      is_local_llm = provider == "localllm"
+
       dialogues: list[dict[str, str]] = []
       total_segments = len(outline.segments)
 
@@ -379,18 +383,22 @@ def generate_transcript(
                           {
                               "role": "system",
                               "content": (
-                                  "You create podcast transcripts that are natural, "
-                                  "role-aware, and JSON-only. You MUST respond with valid JSON only, "
-                                  "no other text before or after."
+                                  "You are a JSON generator. Output ONLY valid JSON data that matches the schema provided. "
+                                  "Do not output JSON Schema, do not output explanations, "
+                                  "do not use markdown code fences. Output pure, valid JSON data only."
                               ),
                           },
                           {"role": "user", "content": prompt},
                       ],
-                      "temperature": 0.5,
+                      "temperature": 0.4 if is_local_llm else 0.5,  # Lower temp for local models
                   }
 
                   if use_response_format:
                       request_params["response_format"] = {"type": "json_object"}
+
+                  # Add max_tokens for local models to prevent truncation
+                  if is_local_llm:
+                      request_params["max_tokens"] = 1500
 
                   response = client.chat.completions.create(**request_params)
                   content = _extract_response_content(response)

@@ -148,7 +148,16 @@ LLM_LOCAL_BASE_URL=http://localhost:1234/v1
 
 **Important:** Voice Clone audio transcription requires `OPENAI_API_KEY` (uses Whisper), even when using Portkey or Local LLM.
 
-**Recommended Local Models:** For best JSON output quality, use models 3B+ (llama3.2:3b, qwen2.5:3b, mistral:7b)
+**Recommended Local Models for Stability:**
+- ✅ Best: `qwen2.5:3b` or `qwen2.5:7b` (excellent JSON output)
+- ✅ Good: `llama3.2:3b` (reliable, fast)
+- ✅ Good: `mistral:7b` (higher quality, slower)
+- ⚠️ Variable: `ministral-3b` (may struggle with complex JSON)
+
+**Tips for Local LLM Success:**
+- Use models 3B or larger for better reliability
+- Qwen models typically perform best at JSON generation
+- If you get JSON errors, try a different model or increase model size
 
 See [PORTKEY_INTEGRATION.md](PORTKEY_INTEGRATION.md) for detailed configuration.
 
@@ -243,6 +252,13 @@ qwen3-TTS-studio/
 - For LM Studio: Start the local server in the app (default port 1234)
 - Check model is loaded: `ollama list` (for Ollama)
 - Verify base URL matches your setup (Ollama: 11434, LM Studio: 1234)
+
+#### Local LLM JSON Errors
+- **Problem**: Model outputs invalid JSON or JSON Schema instead of data
+- **Solution 1**: Try a different model (qwen2.5:3b recommended)
+- **Solution 2**: Use a larger model size (7B instead of 3B)
+- **Solution 3**: In LM Studio, adjust "Max Tokens" to 2000+ in settings
+- Models like Ministral may struggle - switch to Qwen or Llama for reliability
 
 #### Audio Generation Issues
 - Ensure sufficient RAM (16GB+ recommended)

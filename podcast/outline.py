@@ -302,10 +302,38 @@ def _parse_outline_response(
 
     cleaned_text = cleaned_text.strip()
 
+    # Try to extract JSON if model output contains schema format
+    # Some local models confuse JSON Schema with JSON data
+    if '"type": object' in cleaned_text or '"type": "object"' not in cleaned_text:
+        # Likely JSON Schema output, try to find actual data
+        # Look for segments array
+        import re
+        match = re.search(r'"segments"\s*:\s*\[', cleaned_text)
+        if match:
+            # Try to extract just the segments array and wrap it
+            start = match.start()
+            # Find the opening { before segments
+            json_start = cleaned_text.rfind('{', 0, start)
+            if json_start >= 0:
+                # Try to find the closing }
+                brace_count = 0
+                json_end = -1
+                for i in range(json_start, len(cleaned_text)):
+                    if cleaned_text[i] == '{':
+                        brace_count += 1
+                    elif cleaned_text[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            json_end = i + 1
+                            break
+                if json_end > 0:
+                    cleaned_text = cleaned_text[json_start:json_end]
+
     try:
         payload = json.loads(cleaned_text)
     except json.JSONDecodeError as exc:
         print(f"[DEBUG] Failed to parse JSON. Response text: {cleaned_text[:500]}")
+        print(f"[DEBUG] Full response: {response_text}")
         raise ValueError(f"Invalid JSON response. Got: {cleaned_text[:200]}") from exc
 
     if not isinstance(payload, dict):
@@ -374,6 +402,10 @@ def generate_outline(
     # Gemini and other models don't support this parameter
     use_response_format = model_name.startswith("gpt-") or model_name.startswith("o1-")
 
+    # Detect local LLM provider
+    provider = _config_module.get_llm_provider() if hasattr(_config_module, 'get_llm_provider') else "openai"
+    is_local_llm = provider == "localllm"
+
     for attempt in range(total_attempts):
         try:
             request_params = {
@@ -382,18 +414,22 @@ def generate_outline(
                     {
                         "role": "system",
                         "content": (
-                            "You create podcast outlines that are structured, "
-                            "engaging, and JSON-only. You MUST respond with valid JSON only, "
-                            "no other text before or after."
+                            "You are a JSON generator. Output ONLY valid JSON data that matches the schema provided. "
+                            "Do not output JSON Schema, do not output explanations, "
+                            "do not use markdown code fences. Output pure, valid JSON data only."
                         ),
                     },
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": 0.4,
+                "temperature": 0.3 if is_local_llm else 0.4,  # Lower temp for local models
             }
 
             if use_response_format:
                 request_params["response_format"] = {"type": "json_object"}
+
+            # Add max_tokens for local models to prevent truncation
+            if is_local_llm:
+                request_params["max_tokens"] = 2000
 
             response = client.chat.completions.create(**request_params)
             content = _extract_response_content(response)
